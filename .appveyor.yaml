@@ -1,0 +1,36 @@
+version: '1.0.{build}'
+image: Visual Studio 2017
+branches:
+  only:
+  - master
+init:
+  # Good practise, because Windows line endings are different from Unix/Linux ones
+  - cmd: git config --global core.autocrlf true
+install:
+  # Install repo specific stuff here
+before_build:
+  # Display .NET Core version
+  - cmd: dotnet --version
+  # Display minimal restore text
+  - cmd: dotnet restore ./PolarisCore/Polaris.csproj --verbosity m
+build_script:
+  # output will be in ./PolarisCore/bin/Debug/netstandard2.0
+  - cmd: dotnet publish ./PolarisCore/Polaris.csproj
+after_build:
+  # For once the build has completed
+artifacts:
+ - path: '\PolarisCore\bin\Debug\netstandard2.0'
+   name: Artifact
+   type: auto
+clone_depth: 1
+test_script:
+    - ps: |
+        $testResultsFile = ".\TestsResults.xml"
+        $res = Invoke-Pester -OutputFormat NUnitXml -OutputFile $testResultsFile -PassThru
+        (New-Object 'System.Net.WebClient').UploadFile("https://ci.appveyor.com/api/testresults/nunit/$($env:APPVEYOR_JOB_ID)", (Resolve-Path $testResultsFile))
+        if ($res.FailedCount -gt 0) {
+            throw "$($res.FailedCount) tests failed."
+        }
+on_finish :
+  # any cleanup in here
+deploy: off
